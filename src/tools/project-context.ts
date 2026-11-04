@@ -1,17 +1,9 @@
-/**
- * Read-only project context tool.
- * This fixture keeps the first version runnable without a database.
- * Replace it with a permission-checked database/API adapter later.
- */
-export interface ProjectContext {
-  projectId: string;
-  projectName: string;
-  siteId: string;
-  siteName: string;
-  availableOwnerRoles: string[];
-}
+import { demoActor, normalizeActor, type AuthenticatedActor } from "../auth.js";
+import type { ProjectContext, ProjectContextProvider } from "../domain/project-context.js";
 
-const demoContexts: ProjectContext[] = [
+export type { ProjectContext, ProjectContextProvider } from "../domain/project-context.js";
+
+export const demoContexts: ProjectContext[] = [
   {
     projectId: "demo-project",
     projectName: "Demo Commercial Tower",
@@ -27,11 +19,40 @@ const demoContexts: ProjectContext[] = [
   }
 ];
 
-export async function getProjectContext(
+export class DemoProjectContextProvider implements ProjectContextProvider {
+  async getProjectContext(
+    actor: AuthenticatedActor,
+    projectId: string,
+    siteId: string
+  ): Promise<ProjectContext | null> {
+    const authenticatedActor = normalizeActor(actor);
+    if (!authenticatedActor) {
+      return null;
+    }
+
+    return (
+      demoContexts.find(
+        (context) => context.projectId === projectId && context.siteId === siteId
+      ) ?? null
+    );
+  }
+}
+
+export const defaultProjectContextProvider = new DemoProjectContextProvider();
+
+export async function getProjectContextForActor(
+  actor: Partial<AuthenticatedActor> | null | undefined,
   projectId: string,
   siteId: string
 ): Promise<ProjectContext | null> {
-  return demoContexts.find(
-    (context) => context.projectId === projectId && context.siteId === siteId
-  ) ?? null;
+  const authenticatedActor = normalizeActor(actor) ?? demoActor;
+  return defaultProjectContextProvider.getProjectContext(authenticatedActor, projectId, siteId);
+}
+
+export async function getProjectContext(
+  projectId: string,
+  siteId: string,
+  actor: Partial<AuthenticatedActor> | null | undefined = demoActor
+): Promise<ProjectContext | null> {
+  return getProjectContextForActor(actor, projectId, siteId);
 }

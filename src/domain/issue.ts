@@ -1,14 +1,20 @@
 import { z } from "zod";
 
-export const issueReportSchema = z.object({
-  projectId: z.string().trim().min(1),
-  siteId: z.string().trim().min(1),
-  title: z.string().trim().min(3).max(160),
-  description: z.string().trim().min(10).max(5000),
-  location: z.string().trim().min(1).max(200),
-  reporterName: z.string().trim().min(1).max(120),
-  reportedAt: z.string().datetime().optional()
-});
+export const issueReportSchema = z
+  .object({
+    projectId: z.string().trim().min(1),
+    siteId: z.string().trim().min(1),
+    title: z.string().trim().min(3).max(160),
+    description: z.string().trim().min(10).max(5000),
+    location: z.string().trim().min(1).max(200),
+    reporterName: z.string().trim().min(1).max(120).optional(),
+    reporter: z.string().trim().min(1).max(120).optional(),
+    reportedAt: z.string().datetime().optional()
+  })
+  .transform((value) => ({
+    ...value,
+    reporterName: value.reporterName ?? value.reporter ?? "Unknown reporter"
+  }));
 
 export type IssueReport = z.infer<typeof issueReportSchema>;
 

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { demoActor, normalizeActor, type AuthenticatedActor } from "../auth.js";
 import type { IssueReport, IssueTriage } from "../domain/issue.js";
 import { getProjectContext } from "../tools/project-context.js";
 
@@ -114,8 +115,12 @@ function classify(report: IssueReport): Pick<
   };
 }
 
-export async function triageIssue(report: IssueReport): Promise<IssueTriage> {
-  const context = await getProjectContext(report.projectId, report.siteId);
+export async function triageIssue(
+  report: IssueReport,
+  actor: Partial<AuthenticatedActor> | null | undefined = demoActor
+): Promise<IssueTriage> {
+  const authenticatedActor = normalizeActor(actor) ?? demoActor;
+  const context = await getProjectContext(report.projectId, report.siteId, authenticatedActor);
   if (!context) {
     throw new Error("Unknown project/site pair. Add the project to the context adapter first.");
   }

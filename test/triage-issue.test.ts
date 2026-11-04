@@ -34,6 +34,16 @@ describe("triageIssue", () => {
     expect(result.escalationRequired).toBe(false);
   });
 
+  it("accepts the report reporter field used by the example payload", async () => {
+    const result = await triageIssue({
+      ...baseReport,
+      reporter: "Field engineer"
+    } as any);
+
+    expect(result.category).toBe("materials");
+    expect(result.suggestedOwnerRole).toBe("procurement_manager");
+  });
+
   it("rejects an unknown project/site pair", async () => {
     await expect(
       triageIssue({ ...baseReport, projectId: "unknown-project" })

@@ -8,7 +8,8 @@ A standalone backend foundation for a construction-site operations agent. The fi
 
 - `GET /health` health check.
 - `POST /api/agent/triage` validates and triages an issue report.
-- A read-only demo project-context tool.
+- A database-ready project-context provider abstraction with a PostgreSQL adapter shell.
+- A demo-backed fallback for local development and tests when no database connection is configured.
 - Conservative routing for potential safety signals.
 - Unit tests for core routing behavior.
 
@@ -82,7 +83,9 @@ src/
 HTTP request
     -> Zod request validation
     -> triageIssue agent function
-        -> getProjectContext (read-only tool)
+        -> ProjectContextProvider interface
+            -> demo provider for local use
+            -> PostgresProjectContextProvider for tenant-aware access checks
         -> explicit classification rules
         -> human-review-required result
     -> HTTP response
