@@ -1,26 +1,9 @@
 import { normalizeActor, type AuthenticatedActor } from "../../auth.js";
 import type { ProjectContext, ProjectContextProvider } from "../../domain/project-context.js";
-
-export interface PostgresLikeClient {
-  query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<{ rows: T[] }>;
-}
-
-export function createPostgresClientFromEnv(): PostgresLikeClient | null {
-  const connectionUrl = process.env.POSTGRES_URL;
-
-  if (!connectionUrl) {
-    return null;
-  }
-
-  return {
-    async query<T = Record<string, unknown>>(_sql: string, _params?: unknown[]) {
-      return { rows: [] as T[] };
-    }
-  };
-}
+import type { SqlExecutor } from "./database.js";
 
 export class PostgresProjectContextProvider implements ProjectContextProvider {
-  constructor(private readonly client: PostgresLikeClient | null = createPostgresClientFromEnv()) {}
+  constructor(private readonly db: SqlExecutor) {}
 
   async getProjectContext(
     actor: AuthenticatedActor,
@@ -32,10 +15,6 @@ export class PostgresProjectContextProvider implements ProjectContextProvider {
       return null;
     }
 
-    if (!this.client) {
-      return null;
-    }
-
     const sql = `
       SELECT
         p.id AS "projectId",
@@ -43,7 +22,7 @@ export class PostgresProjectContextProvider implements ProjectContextProvider {
         s.id AS "siteId",
         s.name AS "siteName",
         COALESCE(
-          ARRAY_AGG(DISTINCT pm.role_name) FILTER (WHERE pm.role_name IS NOT NULL),
+          ARRAY_AGG(DISTINCT pr.role_name) FILTER (WHERE pr.role_name IS NOT NULL),
           ARRAY[]::text[]
         ) AS "availableOwnerRoles"
       FROM projects p
@@ -58,7 +37,10 @@ export class PostgresProjectContextProvider implements ProjectContextProvider {
       INNER JOIN project_memberships pm
         ON pm.project_id = p.id
        AND pm.user_id = u.id
+       AND pm.tenant_id = $3
        AND pm.active = TRUE
+      LEFT JOIN project_roles pr
+        ON pr.project_id = p.id
       WHERE p.id = $1
         AND s.id = $2
         AND p.tenant_id = $3
@@ -68,7 +50,7 @@ export class PostgresProjectContextProvider implements ProjectContextProvider {
       GROUP BY p.id, p.name, s.id, s.name;
     `;
 
-    const { rows } = await this.client.query<ProjectContext & { availableOwnerRoles?: string[] }>(sql, [
+    const { rows } = await this.db.query<ProjectContext & { availableOwnerRoles?: string[] }>(sql, [
       projectId,
       siteId,
       authenticatedActor.tenantId,

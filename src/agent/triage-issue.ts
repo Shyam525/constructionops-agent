@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { demoActor, normalizeActor, type AuthenticatedActor } from "../auth.js";
+import { normalizeActor, type AuthenticatedActor } from "../auth.js";
 import type { IssueReport, IssueTriage } from "../domain/issue.js";
-import { getProjectContext } from "../tools/project-context.js";
+import type { ProjectContextProvider } from "../domain/project-context.js";
+import { defaultProjectContextProvider } from "../tools/project-context.js";
 
 const safetySignals = [
   /injur(y|ed)/i,
@@ -117,12 +118,21 @@ function classify(report: IssueReport): Pick<
 
 export async function triageIssue(
   report: IssueReport,
-  actor: Partial<AuthenticatedActor> | null | undefined = demoActor
+  actor: AuthenticatedActor,
+  contextProvider: ProjectContextProvider = defaultProjectContextProvider
 ): Promise<IssueTriage> {
-  const authenticatedActor = normalizeActor(actor) ?? demoActor;
-  const context = await getProjectContext(report.projectId, report.siteId, authenticatedActor);
+  const authenticatedActor = normalizeActor(actor);
+  if (!authenticatedActor) {
+    throw new Error("An authenticated actor with a valid userId and tenantId is required.");
+  }
+
+  const context = await contextProvider.getProjectContext(
+    authenticatedActor,
+    report.projectId,
+    report.siteId
+  );
   if (!context) {
-    throw new Error("Unknown project/site pair. Add the project to the context adapter first.");
+    throw new Error("Unknown project/site pair or access denied.");
   }
 
   const classification = classify(report);

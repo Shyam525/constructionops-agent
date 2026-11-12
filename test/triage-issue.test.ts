@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { triageIssue } from "../src/agent/triage-issue.js";
+import { demoActor } from "../src/auth.js";
 import type { IssueReport } from "../src/domain/issue.js";
+import { DemoProjectContextProvider } from "../src/tools/project-context.js";
+
+const demoProvider = new DemoProjectContextProvider();
 
 const baseReport: IssueReport = {
   projectId: "demo-project",
@@ -13,11 +17,15 @@ const baseReport: IssueReport = {
 
 describe("triageIssue", () => {
   it("routes a potential safety incident to the safety officer as critical", async () => {
-    const result = await triageIssue({
-      ...baseReport,
-      title: "Near miss beside crane",
-      description: "A suspended load passed close to workers. No injury reported."
-    });
+    const result = await triageIssue(
+      {
+        ...baseReport,
+        title: "Near miss beside crane",
+        description: "A suspended load passed close to workers. No injury reported."
+      },
+      demoActor,
+      demoProvider
+    );
 
     expect(result.category).toBe("safety");
     expect(result.priority).toBe("critical");
@@ -27,7 +35,7 @@ describe("triageIssue", () => {
   });
 
   it("routes material problems to procurement", async () => {
-    const result = await triageIssue(baseReport);
+    const result = await triageIssue(baseReport, demoActor, demoProvider);
 
     expect(result.category).toBe("materials");
     expect(result.suggestedOwnerRole).toBe("procurement_manager");
@@ -35,10 +43,14 @@ describe("triageIssue", () => {
   });
 
   it("accepts the report reporter field used by the example payload", async () => {
-    const result = await triageIssue({
-      ...baseReport,
-      reporter: "Field engineer"
-    } as any);
+    const result = await triageIssue(
+      {
+        ...baseReport,
+        reporter: "Field engineer"
+      } as any,
+      demoActor,
+      demoProvider
+    );
 
     expect(result.category).toBe("materials");
     expect(result.suggestedOwnerRole).toBe("procurement_manager");
@@ -46,7 +58,7 @@ describe("triageIssue", () => {
 
   it("rejects an unknown project/site pair", async () => {
     await expect(
-      triageIssue({ ...baseReport, projectId: "unknown-project" })
+      triageIssue({ ...baseReport, projectId: "unknown-project" }, demoActor, demoProvider)
     ).rejects.toThrow("Unknown project/site pair");
   });
 });

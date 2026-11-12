@@ -1,5 +1,7 @@
-import { demoActor, normalizeActor, type AuthenticatedActor } from "../auth.js";
+import { normalizeActor, type AuthenticatedActor } from "../auth.js";
 import type { ProjectContext, ProjectContextProvider } from "../domain/project-context.js";
+import { createPostgresDatabase } from "../adapters/postgres/database.js";
+import { PostgresProjectContextProvider } from "../adapters/postgres/project-context-provider.js";
 
 export type { ProjectContext, ProjectContextProvider } from "../domain/project-context.js";
 
@@ -38,21 +40,26 @@ export class DemoProjectContextProvider implements ProjectContextProvider {
   }
 }
 
-export const defaultProjectContextProvider = new DemoProjectContextProvider();
-
-export async function getProjectContextForActor(
-  actor: Partial<AuthenticatedActor> | null | undefined,
-  projectId: string,
-  siteId: string
-): Promise<ProjectContext | null> {
-  const authenticatedActor = normalizeActor(actor) ?? demoActor;
-  return defaultProjectContextProvider.getProjectContext(authenticatedActor, projectId, siteId);
+export function createDefaultProjectContextProvider(): ProjectContextProvider {
+  const db = createPostgresDatabase();
+  if (db) {
+    return new PostgresProjectContextProvider(db);
+  }
+  return new DemoProjectContextProvider();
 }
+
+export const defaultProjectContextProvider: ProjectContextProvider =
+  createDefaultProjectContextProvider();
 
 export async function getProjectContext(
   projectId: string,
   siteId: string,
-  actor: Partial<AuthenticatedActor> | null | undefined = demoActor
+  actor: AuthenticatedActor,
+  provider: ProjectContextProvider = defaultProjectContextProvider
 ): Promise<ProjectContext | null> {
-  return getProjectContextForActor(actor, projectId, siteId);
+  const authenticatedActor = normalizeActor(actor);
+  if (!authenticatedActor) {
+    return null;
+  }
+  return provider.getProjectContext(authenticatedActor, projectId, siteId);
 }
